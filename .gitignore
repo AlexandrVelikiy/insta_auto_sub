@@ -1,0 +1,6 @@
+/build/
+/dist/
+/chromedriver.exe
+/insta_auto_sub.db
+/main.spec
+/main.py
