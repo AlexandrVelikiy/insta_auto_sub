@@ -56,7 +56,6 @@ class QDialogClass(QDialog, settings.Ui_Dialog):
         file = str(QFileDialog.getExistingDirectory(self, "Select Directory"))
         self.lineEdit_chromepath.setText(file)
 
-
 class MainWindow(QMainWindow, mf.Ui_Form):
     def __init__(self):
         # Это здесь нужно для доступа к переменным, методам
