@@ -9,6 +9,7 @@ from db import db, Config, Historys
 import mf,settings
 from PyQt5.QtCore import *
 from time import sleep
+import peewee
 
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -50,7 +51,40 @@ class QDialogClass(QDialog, settings.Ui_Dialog):
         self.setupUi(self)
         self.buttonBox.accepted.connect(self.save_settings)
         self.pushButton_path.clicked.connect(self.btn_open_folder)
+        self.load_stored_data()
+
+    def load_stored_data(self):
+        try:
+            config = Config.select().get()
+            self.lineEdit_chromepath.setText(config.chrome_path)
+            self.spinBox_timeout.setValue(config.timeout)
+            self.checkBox_autostart.setChecked(config.auto_start)
+        except peewee.DoesNotExist:
+            # загружаем значения по умолчанию
+            self.lineEdit_chromepath.setText('')
+            self.spinBox_timeout.setValue(30)
+            self.checkBox_autostart.setChecked(False)
+
+
+
     def save_settings(self):
+        try:
+            chromepath = self.lineEdit_chromepath.text()
+            timeout = self.spinBox_timeout.value()
+            autostart = self.checkBox_autostart.isChecked()
+
+            config = Config.select().get()
+            config.chrome_path =chromepath
+            config.timeout = timeout
+            config.auto_start = autostart
+            config.save()
+
+        except peewee.DoesNotExist:
+            config = Config(chrome_path=chromepath, timeout=timeout, auto_start=autostart)
+            config.save()
+
+
+
         print('save_settings')
     def btn_open_folder(self):
         file = str(QFileDialog.getExistingDirectory(self, "Select Directory"))
@@ -62,7 +96,7 @@ class MainWindow(QMainWindow, mf.Ui_Form):
         # и т.д. в файле design.py
         super().__init__()
         self.setupUi(self)
-
+        self.setWindowTitle('Instagram auto follow confirm v.1.0')
         self.pushButton_start.clicked.connect(self.btn_start)
         self.pushButton_stop.clicked.connect(self.btn_stop)
         self.pushButton_config.clicked.connect(self.btn_settings)

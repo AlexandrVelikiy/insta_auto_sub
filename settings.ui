@@ -43,6 +43,9 @@
    </property>
   </widget>
   <widget class="QLineEdit" name="lineEdit_chromepath">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
    <property name="geometry">
     <rect>
      <x>10</x>
@@ -65,7 +68,7 @@
     <string>Изменить</string>
    </property>
   </widget>
-  <widget class="QSpinBox" name="spinBox">
+  <widget class="QSpinBox" name="spinBox_timeout">
    <property name="geometry">
     <rect>
      <x>10</x>

@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>519</width>
-    <height>557</height>
+    <height>426</height>
    </rect>
   </property>
   <property name="maximumSize">
@@ -19,88 +19,11 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
-  <widget class="QWidget" name="verticalLayoutWidget">
-   <property name="geometry">
-    <rect>
-     <x>10</x>
-     <y>10</y>
-     <width>501</width>
-     <height>31</height>
-    </rect>
-   </property>
-   <layout class="QVBoxLayout" name="verticalLayout">
-    <item alignment="Qt::AlignLeft">
-     <widget class="QLabel" name="label">
-      <property name="minimumSize">
-       <size>
-        <width>493</width>
-        <height>0</height>
-       </size>
-      </property>
-      <property name="text">
-       <string>Парсер информации с сайта zakupki.gov.ru по выбраному ключевому слову за указанный период</string>
-      </property>
-     </widget>
-    </item>
-   </layout>
-  </widget>
-  <widget class="QWidget" name="verticalLayoutWidget_2">
-   <property name="geometry">
-    <rect>
-     <x>10</x>
-     <y>50</y>
-     <width>501</width>
-     <height>26</height>
-    </rect>
-   </property>
-   <layout class="QVBoxLayout" name="verticalLayout_2">
-    <item>
-     <layout class="QHBoxLayout" name="horizontalLayout">
-      <item>
-       <widget class="QLabel" name="label_2">
-        <property name="text">
-         <string>Ключевоес слово для поиска:</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="find_string"/>
-      </item>
-     </layout>
-    </item>
-   </layout>
-  </widget>
-  <widget class="QWidget" name="horizontalLayoutWidget_3">
-   <property name="geometry">
-    <rect>
-     <x>10</x>
-     <y>83</y>
-     <width>501</width>
-     <height>24</height>
-    </rect>
-   </property>
-   <layout class="QHBoxLayout" name="horizontalLayout_3">
-    <item>
-     <widget class="QLabel" name="label_3">
-      <property name="text">
-       <string>Дата начала тендеров:</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_4">
-      <item>
-       <widget class="QDateEdit" name="dateEdit"/>
-      </item>
-     </layout>
-    </item>
-   </layout>
-  </widget>
   <widget class="QWidget" name="verticalLayoutWidget_3">
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>116</y>
+     <y>390</y>
      <width>501</width>
      <height>31</height>
     </rect>
@@ -137,7 +60,7 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>160</y>
+     <y>10</y>
      <width>501</width>
      <height>381</height>
     </rect>
