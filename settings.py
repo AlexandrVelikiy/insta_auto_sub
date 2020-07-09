@@ -38,6 +38,12 @@ class Ui_Dialog(object):
         self.label_2 = QtWidgets.QLabel(Dialog)
         self.label_2.setGeometry(QtCore.QRect(10, 70, 401, 16))
         self.label_2.setObjectName("label_2")
+        self.dateTime_stop = QtWidgets.QDateTimeEdit(Dialog)
+        self.dateTime_stop.setGeometry(QtCore.QRect(310, 7, 194, 22))
+        self.dateTime_stop.setObjectName("dateTime_stop")
+        self.label_3 = QtWidgets.QLabel(Dialog)
+        self.label_3.setGeometry(QtCore.QRect(230, 10, 81, 16))
+        self.label_3.setObjectName("label_3")
 
         self.retranslateUi(Dialog)
         self.buttonBox.accepted.connect(Dialog.accept)
@@ -51,3 +57,4 @@ class Ui_Dialog(object):
         self.pushButton_path.setText(_translate("Dialog", "Изменить"))
         self.label.setText(_translate("Dialog", "Пауза между проверками"))
         self.label_2.setText(_translate("Dialog", "Каталог с GoogleChromePortable"))
+        self.label_3.setText(_translate("Dialog", "Остановить в:"))

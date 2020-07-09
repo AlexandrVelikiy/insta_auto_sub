@@ -104,6 +104,29 @@
     <string>Каталог с GoogleChromePortable</string>
    </property>
   </widget>
+  <widget class="QDateTimeEdit" name="dateTime_stop">
+   <property name="geometry">
+    <rect>
+     <x>310</x>
+     <y>7</y>
+     <width>194</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_3">
+   <property name="geometry">
+    <rect>
+     <x>230</x>
+     <y>10</y>
+     <width>81</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Остановить в:</string>
+   </property>
+  </widget>
  </widget>
  <resources/>
  <connections>
