@@ -19,6 +19,8 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
 
+REPORTS_DIRECTORY_NAME = 'reports'
+
 class WorkerSignals(QObject):
     finished = pyqtSignal()
     error = pyqtSignal(tuple)
@@ -110,18 +112,24 @@ class MainWindow(QMainWindow, mf.Ui_Form):
         self.pushButton_stop.clicked.connect(self.btn_stop)
         self.pushButton_config.clicked.connect(self.btn_settings)
         #
+        if not os.path.exists(REPORTS_DIRECTORY_NAME):
+            os.makedirs(REPORTS_DIRECTORY_NAME)
+
         self.lg = logging.getLogger('insta')
         self.threadpool = QThreadPool()
         self.stop_spam_thread = False
         self.pushButton_stop.setDisabled(True)
         try:
             config = Config.select().get()
+            self.stop_data_time = config.stop_data_time
         except peewee.DoesNotExist:
             self.log.append('Внимание! необходимо настроить путь к браузеру')
             config = Config(chrome_path='', timeout=10, auto_start=False)
             config.save()
 
+
         self.update_ui()
+
 
         #config = ConfigObj('config.ini')
         #path = config.get('path_portable_chrome')
@@ -158,6 +166,7 @@ class MainWindow(QMainWindow, mf.Ui_Form):
             QMessageBox.warning(self,'Внимание','Путь к браузеру не указан в настройках!',QMessageBox.Ok)
             return
         timeout = config.timeout
+        self.stop_data_time = config.stop_data_time
         # сохраняем дату время страта
         config.last_start_dt = datetime.datetime.now()
         config.save()
@@ -207,12 +216,22 @@ class MainWindow(QMainWindow, mf.Ui_Form):
             config = Config.select().get()
             history_last_start = Historys.select().where(Historys.date_time > config.last_start_dt).count()
 
-            with open('report.txt','w') as file:
-                file.writelines(f'Окончание работы: {datetime.datetime.now().strftime("%H:%M:%S %m/%d/%Y")} \\n')
-                file.writelines(f'За сутки было принято: {history_24} \\n')
-                file.writelines(f'За время работы было принято: {history_last_start}')
+            file_name = f'{REPORTS_DIRECTORY_NAME}/report_{datetime.datetime.now().strftime("%H%M%S_%m%d%Y")}.txt'
+            with open(file_name,'w') as file:
+                file.write(f'Окончание работы: {datetime.datetime.now().strftime("%H:%M:%S %m/%d/%Y")}' +'\n')
+                file.write(f'За сутки было принято: {history_24}'+ '\n')
+                file.write(f'За время работы было принято: {history_last_start}' + '\n')
         except:
             self.lg.exception('save_report')
+
+    def timestop(self):
+        #  проверяме время и остановки
+        curr_datetime = datetime.datetime.now()
+        if curr_datetime >self.stop_data_time:
+            self.lg.info('Завершаем программу по времени указаному в настройках')
+            self.log.append('Завершаем программу по времени указаному в настройках')
+            self.btn_stop()
+
 
     def insat_monitor(self,progress_callback, kwargs):
         try:
@@ -251,6 +270,9 @@ class MainWindow(QMainWindow, mf.Ui_Form):
                 pass
 
             while not self.stop_spam_thread:
+                if self.timestop():
+                    break
+
                 try:
                     invites = WebDriverWait(driver, 5).until(
                         lambda driver: driver.find_elements_by_xpath(('.//div[@class="PUHRj  H_sJK"]')))
