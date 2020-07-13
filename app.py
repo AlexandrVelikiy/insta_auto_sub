@@ -4,7 +4,7 @@ from configobj import ConfigObj
 import sys
 import logging
 from PyQt5.QtCore import QEvent
-from PyQt5.QtWidgets import QMainWindow, QApplication, QTabWidget, QMessageBox, QDialog,  QFileDialog
+from PyQt5.QtWidgets import QMainWindow, QApplication, QAction, QMessageBox, QDialog,  QFileDialog
 from PyQt5.QtCore import *
 from db import db, Config, Historys
 import mf,settings
@@ -12,6 +12,7 @@ from PyQt5.QtCore import *
 from time import sleep
 import datetime
 import peewee
+
 
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -107,18 +108,24 @@ class MainWindow(QMainWindow, mf.Ui_Form):
         # и т.д. в файле design.py
         super().__init__()
         self.setupUi(self)
-        self.setWindowTitle('Instagram auto follow confirm v.1.0')
+        self.setWindowTitle('Instagram auto follow confirm v.1.1')
         self.pushButton_start.clicked.connect(self.btn_start)
         self.pushButton_stop.clicked.connect(self.btn_stop)
         self.pushButton_config.clicked.connect(self.btn_settings)
+        self.pushButton_pause.clicked.connect(self.btn_pause)
+        finish = QAction("Quit", self)
+        finish.triggered.connect(self.closeEvent)
+
         #
         if not os.path.exists(REPORTS_DIRECTORY_NAME):
             os.makedirs(REPORTS_DIRECTORY_NAME)
 
         self.lg = logging.getLogger('insta')
         self.threadpool = QThreadPool()
-        self.stop_spam_thread = False
+        self.stop_thread = False
+        self.pause_thread = False
         self.pushButton_stop.setDisabled(True)
+        self.pushButton_pause.setDisabled(True)
         try:
             config = Config.select().get()
             self.stop_data_time = config.stop_data_time
@@ -127,19 +134,19 @@ class MainWindow(QMainWindow, mf.Ui_Form):
             config = Config(chrome_path='', timeout=10, auto_start=False)
             config.save()
 
-
         self.update_ui()
-
-
-        #config = ConfigObj('config.ini')
-        #path = config.get('path_portable_chrome')
-        #self.exec_path_chrome = os.path.join(path, 'App/Chrome-bin/Chrome.exe')
-        #self.profile_path = os.path.join(path, 'Data/profile/')
         if config.auto_start:
             self.lg.info('Запускаем браузер автоматически')
             self.log.append('Запускаем браузер автоматически')
             self.btn_start()
 
+    def closeEvent(self, event):
+        close = QMessageBox.question(self,"Выход","Хотите завершить работу программы?",
+                                     QMessageBox.Yes | QMessageBox.No)
+        if close == QMessageBox.Yes:
+            event.accept()
+        else:
+            event.ignore()
 
     def update_ui(self):
         history_all = Historys.select().count()
@@ -153,12 +160,26 @@ class MainWindow(QMainWindow, mf.Ui_Form):
         history_last_start = Historys.select().where(Historys.date_time > config.last_start_dt).count()
         self.label_countLaststart.setText(str(history_last_start))
 
+    def btn_pause(self):
+        self.log.append('Пауза, для продолжения нажмите Старт')
+        self.pause_thread = True
+        self.pushButton_start.setDisabled(False)
+        self.pushButton_pause.setDisabled(True)
+
+
     def btn_settings(self):
         dialog = QDialogClass()
         dialog.exec_()
 
 
     def btn_start(self):
+        # обрабатываем паузу
+        if self.pause_thread:
+            self.pause_thread = False
+            self.pushButton_start.setDisabled(True)
+            self.pushButton_pause.setDisabled(False)
+            return
+
         # загружаем настройки
         config = Config.select().get()
         chromepath = config.chrome_path
@@ -172,6 +193,7 @@ class MainWindow(QMainWindow, mf.Ui_Form):
         config.save()
 
         self.pushButton_start.setDisabled(True)
+        self.pushButton_pause.setDisabled(False)
         self.pushButton_stop.setDisabled(False)
         self.pushButton_config.setDisabled(True)
 
@@ -187,16 +209,17 @@ class MainWindow(QMainWindow, mf.Ui_Form):
 
     def btn_stop(self):
         self.log.append('Нажали Стоп, ждем закрытя браузера')
-        self.stop_spam_thread = True
+        self.stop_thread = True
 
     def print_output(self, s):
         print(s)
 
     def thread_complete(self):
         #self.log.append('браузер закрыт')
-        self.stop_spam_thread = False
+        self.stop_thread = False
         self.pushButton_start.setDisabled(False)
         self.pushButton_stop.setDisabled(True)
+        self.pushButton_pause.setDisabled(True)
         self.pushButton_config.setDisabled(False)
         self.update_ui()
         self.save_report()
@@ -231,6 +254,9 @@ class MainWindow(QMainWindow, mf.Ui_Form):
             self.lg.info('Завершаем программу по времени указаному в настройках')
             self.log.append('Завершаем программу по времени указаному в настройках')
             self.btn_stop()
+            return True
+        else:
+            return False
 
 
     def insat_monitor(self,progress_callback, kwargs):
@@ -269,46 +295,49 @@ class MainWindow(QMainWindow, mf.Ui_Form):
             except:
                 pass
 
-            while not self.stop_spam_thread:
+            while not self.stop_thread:
                 if self.timestop():
-                    break
-
-                try:
-                    invites = WebDriverWait(driver, 5).until(
-                        lambda driver: driver.find_elements_by_xpath(('.//div[@class="PUHRj  H_sJK"]')))
-                except TimeoutException:
-                    progress_callback.emit(f'Нет необработаных запросов, пауза {timeout} секунд.')
-                    sleep(timeout)
-                    try:
-                        driver.refresh()
-                    except:
-                        progress_callback.emit(f'Похоже браузер закрыт или не отвечает, попробуйте нажать старт снова')
                     continue
 
-                if invites:
-                    progress_callback.emit(f'Есть {len(invites)} необработаных запросов!')
-                    #
-                    # ('.//div[@class="PUHRj  H_sJK"]//div [@class="_7WumH"]/span/text()')
-                    for invite in invites:
-                        user_login = invite.find_element(By.XPATH,'.//div [@class="_7WumH"]/a').text
-                        user_name = invite.find_element(By.XPATH,'.//div [@class="_7WumH"]/span').text
-                        button_confirm = invite.find_element(By.XPATH,'//button[contains(text(),"Confirm")]')
-                        button_confirm.click()
-                        progress_callback.emit(f'Подтверждаем запрос от пользователя: {user_name}.')
-                        history= Historys(user_name = user_name,insta_login = user_login, date_time = datetime.datetime.now())
-                        history.save()
+                if not self.pause_thread:
+                    try:
+                        invites = WebDriverWait(driver, 5).until(
+                            lambda driver: driver.find_elements_by_xpath(('.//div[@class="PUHRj  H_sJK"]')))
+                    except TimeoutException:
+                        progress_callback.emit(f'Нет необработаных запросов, пауза {timeout} секунд.')
+                        sleep(timeout)
+                        try:
+                            driver.refresh()
+                        except:
+                            progress_callback.emit(f'Похоже браузер закрыт или не отвечает, попробуйте нажать старт снова')
+                        continue
 
+                    if invites:
+                        progress_callback.emit(f'Есть {len(invites)} необработаных запросов!')
+                        #
+                        # ('.//div[@class="PUHRj  H_sJK"]//div [@class="_7WumH"]/span/text()')
+                        for invite in invites:
+                            user_login = invite.find_element(By.XPATH,'.//div [@class="_7WumH"]/a').text
+                            user_name = invite.find_element(By.XPATH,'.//div [@class="_7WumH"]/span').text
+                            button_confirm = invite.find_element(By.XPATH,'//button[contains(text(),"Confirm")]')
+                            button_confirm.click()
+                            progress_callback.emit(f'Подтверждаем запрос от пользователя: {user_name}.')
+                            history= Historys(user_name = user_name,insta_login = user_login, date_time = datetime.datetime.now())
+                            history.save()
+                            sleep(1)
+
+                    else:
+                        progress_callback.emit(f'Нет необработаных запросов, пауза {timeout} секунд.')
+
+
+                    sleep(timeout)
+                    driver.refresh()
                 else:
-                    progress_callback.emit(f'Нет необработаных запросов, пауза {timeout} секунд.')
-
-
-                sleep(timeout)
-                driver.refresh()
+                    sleep(1)
 
 
             progress_callback.emit('Закрываем браузер')
             driver.quit()
-
 
         except:
             self.lg.exception('insat_monitor')
@@ -342,5 +371,4 @@ if __name__ == '__main__':
     try:
         app.exec_()
     except:
-        with open('log', 'w+') as log_file:
-            traceback.print_exc(file=log_file)
+        logger.exception('main')

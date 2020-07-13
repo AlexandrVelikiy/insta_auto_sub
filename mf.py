@@ -26,6 +26,9 @@ class Ui_Form(object):
         self.pushButton_start = QtWidgets.QPushButton(self.verticalLayoutWidget_3)
         self.pushButton_start.setObjectName("pushButton_start")
         self.horizontalLayout_2.addWidget(self.pushButton_start)
+        self.pushButton_pause = QtWidgets.QPushButton(self.verticalLayoutWidget_3)
+        self.pushButton_pause.setObjectName("pushButton_pause")
+        self.horizontalLayout_2.addWidget(self.pushButton_pause)
         self.pushButton_stop = QtWidgets.QPushButton(self.verticalLayoutWidget_3)
         self.pushButton_stop.setObjectName("pushButton_stop")
         self.horizontalLayout_2.addWidget(self.pushButton_stop)
@@ -107,6 +110,7 @@ class Ui_Form(object):
         _translate = QtCore.QCoreApplication.translate
         Form.setWindowTitle(_translate("Form", "Form"))
         self.pushButton_start.setText(_translate("Form", "Старт"))
+        self.pushButton_pause.setText(_translate("Form", "Пауза"))
         self.pushButton_stop.setText(_translate("Form", "Стоп"))
         self.pushButton_config.setText(_translate("Form", "Настройки"))
         self.label_4.setText(_translate("Form", "Статистика"))
