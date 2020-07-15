@@ -6,14 +6,20 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>519</width>
-    <height>426</height>
+    <width>517</width>
+    <height>440</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>517</width>
+    <height>440</height>
+   </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>519</width>
-    <height>16777215</height>
+    <width>517</width>
+    <height>440</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -23,7 +29,7 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>390</y>
+     <y>400</y>
      <width>501</width>
      <height>31</height>
     </rect>
@@ -112,7 +118,39 @@
         <item>
          <widget class="QLabel" name="label_countAll">
           <property name="text">
-           <string>label_countAll</string>
+           <string>0</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout">
+        <item>
+         <widget class="QLabel" name="label_timer_text">
+          <property name="font">
+           <font>
+            <pointsize>8</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Время работы:</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <widget class="QLabel" name="label_timer">
+          <property name="font">
+           <font>
+            <pointsize>8</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>0:00:00</string>
           </property>
          </widget>
         </item>
@@ -138,7 +176,42 @@
         <item>
          <widget class="QLabel" name="label_count24hour">
           <property name="text">
-           <string>label_count24hour</string>
+           <string>0</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_11">
+        <item>
+         <widget class="QLabel" name="label_timer_text_2">
+          <property name="font">
+           <font>
+            <pointsize>8</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Время работы:</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_12">
+        <item>
+         <widget class="QLabel" name="label_timer_2">
+          <property name="enabled">
+           <bool>true</bool>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>8</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>0:00:00</string>
           </property>
          </widget>
         </item>
@@ -164,11 +237,17 @@
         <item>
          <widget class="QLabel" name="label_countLaststart">
           <property name="text">
-           <string>label_countLaststart</string>
+           <string>0</string>
           </property>
          </widget>
         </item>
        </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_13"/>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_14"/>
       </item>
      </layout>
     </item>

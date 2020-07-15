@@ -1,9 +1,9 @@
 import os
 import traceback
-from configobj import ConfigObj
+from random import randint
 import sys
 import logging
-from PyQt5.QtCore import QEvent
+from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QMainWindow, QApplication, QAction, QMessageBox, QDialog,  QFileDialog
 from PyQt5.QtCore import *
 from db import db, Config, Historys
@@ -12,7 +12,7 @@ from PyQt5.QtCore import *
 from time import sleep
 import datetime
 import peewee
-
+from apscheduler.schedulers.qt import QtScheduler
 
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -59,16 +59,81 @@ class QDialogClass(QDialog, settings.Ui_Dialog):
         self.lg = logging.getLogger('insta')
         self.buttonBox.accepted.connect(self.save_settings)
         self.pushButton_path.clicked.connect(self.btn_open_folder)
+        self.dateTime_start.editingFinished.connect(self.start_stateChanged)
+        self.dateTime_stop.editingFinished.connect(self.stop_stateChanged)
+        self.checkBox_sheduled.stateChanged.connect(self.shedule_change_state)
         self.load_stored_data()
+
+        self.curr_dateTime_stop = None
+        self.curr_dateTime_start = None
+
+    def shedule_change_state(self):
+        if not self.checkBox_sheduled.isChecked():
+            self.curr_dateTime_stop = self.dateTime_stop.dateTime().toPyDateTime()
+            self.curr_dateTime_start = self.dateTime_start.dateTime().toPyDateTime()
+            message = ''
+            if self.curr_dateTime_start < datetime.datetime.now():
+                message =  message + 'Дата старта не может быть меньше текущей даты. '
+            if self.curr_dateTime_stop < datetime.datetime.now():
+                message = message + 'Дата остановки не может быть меньше текущей даты. '
+            if self.curr_dateTime_stop < self.curr_dateTime_start:
+                message = message + 'Дата старта не может быть меньше даты остановки'
+
+            if message:
+                QMessageBox.warning(self, 'Внимание!', message, QMessageBox.Ok)
+             #   if self.checkBox_sheduled.isChecked():
+                self.checkBox_sheduled.setChecked(False)
+            #else:
+            #    if not self.checkBox_sheduled.isChecked():
+            #        self.checkBox_sheduled.setChecked(True)
+        else:
+            pass
+
+    def start_stateChanged(self):
+        self.curr_dateTime_start = self.dateTime_start.dateTime().toPyDateTime()
+
+        if self.curr_dateTime_start < datetime.datetime.now():
+            QMessageBox.warning(self, 'Внимание!', 'Дата старта не может быть меньше текущей даты',
+                                QMessageBox.Ok)
+            self.curr_dateTime_start = None
+            return
+        if self.curr_dateTime_stop:
+            if self.curr_dateTime_stop > self.curr_dateTime_start:
+                # определяем разницу
+                running_time = self.curr_dateTime_stop - self.curr_dateTime_start
+                self.lineEdit.setText(str(running_time))
+            else:
+                QMessageBox.warning(self,'Внимание!','Дата старта не может быть меньше даты остановки', QMessageBox.Ok)
+
+    def stop_stateChanged(self):
+        self.curr_dateTime_stop = self.dateTime_stop.dateTime().toPyDateTime()
+        if self.curr_dateTime_stop < datetime.datetime.now():
+            QMessageBox.warning(self, 'Внимание!', 'Дата остановки не может быть меньше текущей даты',
+                                QMessageBox.Ok)
+            self.curr_dateTime_stop = None
+            return
+
+        if self.curr_dateTime_start:
+            if self.curr_dateTime_stop > self.curr_dateTime_start:
+                # определяем разницу
+                running_time = self.curr_dateTime_stop - self.curr_dateTime_start
+                self.lineEdit.setText(str(running_time))
+            else:
+                QMessageBox.warning(self, 'Внимание!', 'Дата остановки не может быть больше даты старта', QMessageBox.Ok)
 
     def load_stored_data(self):
         try:
             config = Config.select().get()
             self.lineEdit_chromepath.setText(config.chrome_path)
             self.spinBox_timeout.setValue(config.timeout)
-            self.checkBox_autostart.setChecked(config.auto_start)
+            if config.sheduled:
+                self.checkBox_sheduled.setChecked(config.sheduled)
+            else:
+                self.checkBox_sheduled.setChecked(False)
             if config.stop_data_time:
                 self.dateTime_stop.setDateTime(config.stop_data_time)
+            if config.start_data_time:
+                self.dateTime_start.setDateTime(config.start_data_time)
         except peewee.DoesNotExist:
             # загружаем значения по умолчанию
             self.lineEdit_chromepath.setText('')
@@ -76,28 +141,31 @@ class QDialogClass(QDialog, settings.Ui_Dialog):
             self.checkBox_autostart.setChecked(False)
             self.dateTime_stop.setDateTime(datetime.datetime.now()+datetime.timedelta(days=1))
 
-
     def save_settings(self):
         try:
             chromepath = self.lineEdit_chromepath.text()
             timeout = self.spinBox_timeout.value()
-            autostart = self.checkBox_autostart.isChecked()
+            sheduled = self.checkBox_sheduled.isChecked()
             stop_datetime = self.dateTime_stop.dateTime().toPyDateTime()
+            start_datetime = self.dateTime_start.dateTime().toPyDateTime()
 
             config = Config.select().get()
             config.chrome_path =chromepath
             config.timeout = timeout
-            config.auto_start = autostart
+            config.sheduled = sheduled
+            config.start_data_time = start_datetime
             config.stop_data_time = stop_datetime
             config.save()
 
         except peewee.DoesNotExist:
-            config = Config(chrome_path=chromepath, timeout=timeout, auto_start=autostart)
+            config = Config(chrome_path=chromepath, timeout=timeout,sheduled =sheduled,
+                            start_data_time = start_datetime,stop_data_time=stop_datetime)
             config.save()
 
 
-
+        return sheduled
         print('save_settings')
+
     def btn_open_folder(self):
         file = str(QFileDialog.getExistingDirectory(self, "Select Directory"))
         self.lineEdit_chromepath.setText(file)
@@ -107,8 +175,10 @@ class MainWindow(QMainWindow, mf.Ui_Form):
         # Это здесь нужно для доступа к переменным, методам
         # и т.д. в файле design.py
         super().__init__()
+        if not os.path.exists(REPORTS_DIRECTORY_NAME):
+            os.makedirs(REPORTS_DIRECTORY_NAME)
         self.setupUi(self)
-        self.setWindowTitle('Instagram auto follow confirm v.1.1')
+        self.setWindowTitle('Instagram auto follow confirm v.1.2')
         self.pushButton_start.clicked.connect(self.btn_start)
         self.pushButton_stop.clicked.connect(self.btn_stop)
         self.pushButton_config.clicked.connect(self.btn_settings)
@@ -116,29 +186,57 @@ class MainWindow(QMainWindow, mf.Ui_Form):
         finish = QAction("Quit", self)
         finish.triggered.connect(self.closeEvent)
 
-        #
-        if not os.path.exists(REPORTS_DIRECTORY_NAME):
-            os.makedirs(REPORTS_DIRECTORY_NAME)
+        # таймер для вывода времени работы
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.handleTimer)
+        self.timer.setInterval(1000)
+
+        # таймер для старта планировщика
+        self.timer_start = QTimer()
+        self.timer_start.timeout.connect(self.handleTimerstart)
+        #self.timer_start.start(1000)
+        # таймер для  остановки планировщика
+        self.timer_stop = QTimer()
+        self.timer_stop.timeout.connect(self.handleTimerstop)
 
         self.lg = logging.getLogger('insta')
         self.threadpool = QThreadPool()
         self.stop_thread = False
         self.pause_thread = False
-        self.pushButton_stop.setDisabled(True)
-        self.pushButton_pause.setDisabled(True)
+
         try:
             config = Config.select().get()
-            self.stop_data_time = config.stop_data_time
+            self.is_sheduled = config.sheduled
+            # настраиваем внешний вид в зависимости от  self.is_sheduled
+            if self.is_sheduled:
+                # запуск по планировщику
+                self.set_shedule_mode(config)
+            else:
+                # запуск в ручном режиме
+                self.set_manual_mode(config)
+
         except peewee.DoesNotExist:
             self.log.append('Внимание! необходимо настроить путь к браузеру')
             config = Config(chrome_path='', timeout=10, auto_start=False)
             config.save()
 
         self.update_ui()
-        if config.auto_start:
-            self.lg.info('Запускаем браузер автоматически')
-            self.log.append('Запускаем браузер автоматически')
-            self.btn_start()
+
+    def handleTimer(self):
+        # Выводим таймер с момента нажатия старт или с момента запуска по расписанию
+        time  = datetime.datetime.now() - self.curren_time
+        self.label_timer.setText(str(time).split('.', 2)[0])
+
+    def handleTimerstart(self):
+        time = self.start_data_time - datetime.datetime.now()
+        self.label_timer.setText(str(time).split('.', 2)[0])
+        if datetime.datetime.now() > self.start_data_time:
+            # запускаем скрипт
+            self.log.append('ЫЫЫЫЫЫЫЫЫЫЫы - старт')
+            #self.btn_start()
+
+    def handleTimerstop(self):
+        print('stop')
 
     def closeEvent(self, event):
         close = QMessageBox.question(self,"Выход","Хотите завершить работу программы?",
@@ -160,17 +258,49 @@ class MainWindow(QMainWindow, mf.Ui_Form):
         history_last_start = Historys.select().where(Historys.date_time > config.last_start_dt).count()
         self.label_countLaststart.setText(str(history_last_start))
 
+    def set_shedule_mode(self,config):
+        # запуск по планировщику
+        self.start_data_time = config.start_data_time
+        self.stop_data_time = config.stop_data_time
+        self.pushButton_start.setDisabled(True)
+        self.pushButton_stop.setDisabled(True)
+        self.pushButton_pause.setDisabled(True)
+        self.label_timer_text_2.setVisible(True)
+        self.label_timer_2.setVisible(True)
+        self.label_timer_text.setText('До запуска осталось:')
+        self.label_timer_text_2.setText('Время работы:')
+        # Запускем таймер для отсчета времени до запуска
+        self.timer_start.start(1000)
+
+    def set_manual_mode(self,config):
+        # запуск в ручном режиме
+        self.start_data_time = config.start_data_time
+        self.stop_data_time = config.stop_data_time
+        self.pushButton_start.setDisabled(False)
+        self.pushButton_stop.setDisabled(True)
+        self.pushButton_pause.setDisabled(True)
+        self.label_timer_text_2.setVisible(False)
+        self.label_timer_2.setVisible(False)
+        self.label_timer_text.setText('Время работы:')
+        # останавливаем таймер
+        self.timer_start.stop()
+        self.label_timer.setText('0:00:00')
+
+    def btn_settings(self):
+        dialog = QDialogClass()
+        dialog.exec_()
+        # тут проверяем каждый раз установлен ли запуск по времени
+        config = Config.select().get()
+        if config.sheduled:
+            self.set_shedule_mode(config)
+        else:
+            self.set_manual_mode(config)
+
     def btn_pause(self):
         self.log.append('Пауза, для продолжения нажмите Старт')
         self.pause_thread = True
         self.pushButton_start.setDisabled(False)
         self.pushButton_pause.setDisabled(True)
-
-
-    def btn_settings(self):
-        dialog = QDialogClass()
-        dialog.exec_()
-
 
     def btn_start(self):
         # обрабатываем паузу
@@ -179,6 +309,10 @@ class MainWindow(QMainWindow, mf.Ui_Form):
             self.pushButton_start.setDisabled(True)
             self.pushButton_pause.setDisabled(False)
             return
+        else:
+            #запускам таймер если нажимаем страт вне паузы
+            self.curren_time = datetime.datetime.now()
+            self.timer.start()
 
         # загружаем настройки
         config = Config.select().get()
@@ -206,10 +340,10 @@ class MainWindow(QMainWindow, mf.Ui_Form):
         # Execute
         self.threadpool.start(worker)
 
-
     def btn_stop(self):
         self.log.append('Нажали Стоп, ждем закрытя браузера')
         self.stop_thread = True
+        self.timer.stop()
 
     def print_output(self, s):
         print(s)
@@ -324,7 +458,7 @@ class MainWindow(QMainWindow, mf.Ui_Form):
                             progress_callback.emit(f'Подтверждаем запрос от пользователя: {user_name}.')
                             history= Historys(user_name = user_name,insta_login = user_login, date_time = datetime.datetime.now())
                             history.save()
-                            sleep(1)
+                            sleep(randint(1,3))
 
                     else:
                         progress_callback.emit(f'Нет необработаных запросов, пауза {timeout} секунд.')
