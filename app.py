@@ -59,8 +59,8 @@ class QDialogClass(QDialog, settings.Ui_Dialog):
         self.lg = logging.getLogger('insta')
         self.buttonBox.accepted.connect(self.save_settings)
         self.pushButton_path.clicked.connect(self.btn_open_folder)
-        self.dateTime_start.editingFinished.connect(self.start_stateChanged)
-        self.dateTime_stop.editingFinished.connect(self.stop_stateChanged)
+        #self.dateTime_start.editingFinished.connect(self.start_stateChanged)
+        #self.dateTime_stop.editingFinished.connect(self.stop_stateChanged)
         self.checkBox_sheduled.stateChanged.connect(self.shedule_change_state)
         self.load_stored_data()
 
@@ -68,26 +68,29 @@ class QDialogClass(QDialog, settings.Ui_Dialog):
         self.curr_dateTime_start = None
 
     def shedule_change_state(self):
-        if not self.checkBox_sheduled.isChecked():
-            self.curr_dateTime_stop = self.dateTime_stop.dateTime().toPyDateTime()
-            self.curr_dateTime_start = self.dateTime_start.dateTime().toPyDateTime()
-            message = ''
-            if self.curr_dateTime_start < datetime.datetime.now():
-                message =  message + 'Дата старта не может быть меньше текущей даты. '
-            if self.curr_dateTime_stop < datetime.datetime.now():
-                message = message + 'Дата остановки не может быть меньше текущей даты. '
-            if self.curr_dateTime_stop < self.curr_dateTime_start:
-                message = message + 'Дата старта не может быть меньше даты остановки'
+        self.curr_dateTime_stop = self.dateTime_stop.dateTime().toPyDateTime()
+        self.curr_dateTime_start = self.dateTime_start.dateTime().toPyDateTime()
 
-            if message:
-                QMessageBox.warning(self, 'Внимание!', message, QMessageBox.Ok)
-             #   if self.checkBox_sheduled.isChecked():
+        message = ''
+        if self.curr_dateTime_start < datetime.datetime.now():
+            message =  message + 'Дата старта не может быть меньше текущей даты. '
+
+        if self.curr_dateTime_stop < datetime.datetime.now():
+            message = message + 'Дата остановки не может быть меньше текущей даты. '
+
+        if self.curr_dateTime_stop < self.curr_dateTime_start:
+            message = message + 'Дата старта не может быть меньше даты остановки'
+
+        if message:
+            QMessageBox.warning(self, 'Внимание!', message, QMessageBox.Ok)
+         #   if self.checkBox_sheduled.isChecked():
+            if self.checkBox_sheduled.isChecked():
                 self.checkBox_sheduled.setChecked(False)
-            #else:
-            #    if not self.checkBox_sheduled.isChecked():
-            #        self.checkBox_sheduled.setChecked(True)
+            else:
+                self.checkBox_sheduled.setChecked(False)
         else:
-            pass
+            running_time = self.curr_dateTime_stop - self.curr_dateTime_start
+            self.lineEdit.setText(str(running_time))
 
     def start_stateChanged(self):
         self.curr_dateTime_start = self.dateTime_start.dateTime().toPyDateTime()
@@ -194,21 +197,22 @@ class MainWindow(QMainWindow, mf.Ui_Form):
         # таймер для старта планировщика
         self.timer_start = QTimer()
         self.timer_start.timeout.connect(self.handleTimerstart)
-        #self.timer_start.start(1000)
-        # таймер для  остановки планировщика
-        self.timer_stop = QTimer()
-        self.timer_stop.timeout.connect(self.handleTimerstop)
+        self.is_startet_sheduler = False
 
         self.lg = logging.getLogger('insta')
         self.threadpool = QThreadPool()
         self.stop_thread = False
         self.pause_thread = False
+        self.is_sheduled = False # программа запустилась по расписанию
 
         try:
             config = Config.select().get()
-            self.is_sheduled = config.sheduled
-            # настраиваем внешний вид в зависимости от  self.is_sheduled
-            if self.is_sheduled:
+            # если врямя запуска уже прошло  - устанавливаем насильно ручной режим
+            if datetime.datetime.now() > config.start_data_time:
+                config.sheduled = False
+                config.save()
+            # настраиваем внешний вид в зависимости от  config.sheduled
+            if config.sheduled:
                 # запуск по планировщику
                 self.set_shedule_mode(config)
             else:
@@ -224,19 +228,47 @@ class MainWindow(QMainWindow, mf.Ui_Form):
 
     def handleTimer(self):
         # Выводим таймер с момента нажатия старт или с момента запуска по расписанию
-        time  = datetime.datetime.now() - self.curren_time
-        self.label_timer.setText(str(time).split('.', 2)[0])
+        if not self.is_sheduled:
+            time = datetime.datetime.now() - self.curren_time
+            self.label_timer.setText(str(time).split('.', 2)[0])
 
     def handleTimerstart(self):
-        time = self.start_data_time - datetime.datetime.now()
-        self.label_timer.setText(str(time).split('.', 2)[0])
         if datetime.datetime.now() > self.start_data_time:
             # запускаем скрипт
-            self.log.append('ЫЫЫЫЫЫЫЫЫЫЫы - старт')
-            #self.btn_start()
+            if not self.is_sheduled:
+                self.is_sheduled = True
+                self.log.append('Запускаем по расписанию')
+                self.pushButton_stop.setDisabled(False)
+                self.btn_start()
+                # меняем надписи
+                self.label_timer_text.setText('Время работы:')
+            else:
+                #выводим время работы
+                time = datetime.datetime.now() - self.start_data_time
+                self.label_timer.setText(str(time).split('.', 2)[0])
+                self.label_timer_text_2.setText('Работать осталось:')
+                time = self.stop_data_time - datetime.datetime.now()
+                self.label_timer_2.setText(str(time).split('.', 2)[0])
+        else:
+            # выводим время до старта
+            time = self.start_data_time - datetime.datetime.now()
+            self.label_timer.setText(str(time).split('.', 2)[0])
+            self.label_timer_2.setText('0:00:00')
 
-    def handleTimerstop(self):
-        print('stop')
+        if datetime.datetime.now() > self.stop_data_time:
+            # останавливаем скрипт
+            self.log.append('Останавливаем по расписанию')
+            if self.is_sheduled:
+                # останавливаем таймер
+                self.timer_start.stop()
+                # останавливаем процесс
+                self.btn_stop()
+                # сбрасываем настроку автозапуска
+                self.is_sheduled = False
+                config = Config.select().get()
+                config.sheduled = self.is_sheduled
+                config.save()
+                self.set_manual_mode(config)
 
     def closeEvent(self, event):
         close = QMessageBox.question(self,"Выход","Хотите завершить работу программы?",
@@ -291,6 +323,10 @@ class MainWindow(QMainWindow, mf.Ui_Form):
         dialog.exec_()
         # тут проверяем каждый раз установлен ли запуск по времени
         config = Config.select().get()
+        # если врямя запуска уже прошло  - устанавливаем насильно ручной режим
+        if datetime.datetime.now() > config.start_data_time:
+            config.sheduled = False
+            config.save()
         if config.sheduled:
             self.set_shedule_mode(config)
         else:
@@ -321,13 +357,16 @@ class MainWindow(QMainWindow, mf.Ui_Form):
             QMessageBox.warning(self,'Внимание','Путь к браузеру не указан в настройках!',QMessageBox.Ok)
             return
         timeout = config.timeout
-        self.stop_data_time = config.stop_data_time
+        #self.stop_data_time = config.stop_data_time
         # сохраняем дату время страта
         config.last_start_dt = datetime.datetime.now()
         config.save()
 
         self.pushButton_start.setDisabled(True)
-        self.pushButton_pause.setDisabled(False)
+        if self.is_sheduled:
+            self.pushButton_pause.setDisabled(True)
+        else:
+            self.pushButton_pause.setDisabled(False)
         self.pushButton_stop.setDisabled(False)
         self.pushButton_config.setDisabled(True)
 
@@ -344,6 +383,14 @@ class MainWindow(QMainWindow, mf.Ui_Form):
         self.log.append('Нажали Стоп, ждем закрытя браузера')
         self.stop_thread = True
         self.timer.stop()
+        if self.is_sheduled:
+            # сбрасываем настроку автозапуска
+            self.is_sheduled = False
+            config = Config.select().get()
+            config.sheduled = self.is_sheduled
+            config.save()
+            self.timer_start.stop()
+            self.set_manual_mode(config)
 
     def print_output(self, s):
         print(s)
@@ -380,18 +427,6 @@ class MainWindow(QMainWindow, mf.Ui_Form):
                 file.write(f'За время работы было принято: {history_last_start}' + '\n')
         except:
             self.lg.exception('save_report')
-
-    def timestop(self):
-        #  проверяме время и остановки
-        curr_datetime = datetime.datetime.now()
-        if curr_datetime >self.stop_data_time:
-            self.lg.info('Завершаем программу по времени указаному в настройках')
-            self.log.append('Завершаем программу по времени указаному в настройках')
-            self.btn_stop()
-            return True
-        else:
-            return False
-
 
     def insat_monitor(self,progress_callback, kwargs):
         try:
@@ -430,9 +465,6 @@ class MainWindow(QMainWindow, mf.Ui_Form):
                 pass
 
             while not self.stop_thread:
-                if self.timestop():
-                    continue
-
                 if not self.pause_thread:
                     try:
                         invites = WebDriverWait(driver, 5).until(
