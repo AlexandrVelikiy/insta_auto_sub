@@ -212,21 +212,22 @@ class MainWindow(QMainWindow, mf.Ui_Form):
 
         try:
             config = Config.select().get()
-            # если врямя запуска уже прошло  - устанавливаем насильно ручной режим
-            if datetime.datetime.now() > config.start_data_time:
-                config.sheduled = False
-                config.save()
-            # настраиваем внешний вид в зависимости от  config.sheduled
-            if config.sheduled:
-                # запуск по планировщику
-                self.set_shedule_mode(config)
-            else:
-                # запуск в ручном режиме
-                self.set_manual_mode(config)
+            if config.start_data_time:
+                # если врямя запуска уже прошло  - устанавливаем насильно ручной режим
+                if datetime.datetime.now() > config.start_data_time:
+                    config.sheduled = False
+                    config.save()
+                # настраиваем внешний вид в зависимости от  config.sheduled
+                if config.sheduled:
+                    # запуск по планировщику
+                    self.set_shedule_mode(config)
+                else:
+                    # запуск в ручном режиме
+                    self.set_manual_mode(config)
 
         except peewee.DoesNotExist:
             self.log.append('Внимание! необходимо настроить путь к браузеру')
-            config = Config(chrome_path='', timeout=10, auto_start=False)
+            config = Config(chrome_path='', timeout=10,timeout_confirm = 3, auto_start=False)
             config.save()
 
         self.update_ui()
