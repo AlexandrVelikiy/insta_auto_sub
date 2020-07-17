@@ -186,7 +186,7 @@ class MainWindow(QMainWindow, mf.Ui_Form):
         if not os.path.exists(REPORTS_DIRECTORY_NAME):
             os.makedirs(REPORTS_DIRECTORY_NAME)
         self.setupUi(self)
-        self.setWindowTitle('Instagram auto follow confirm v.1.3')
+        self.setWindowTitle('Instagram auto follow confirm v.1.4')
         self.pushButton_start.clicked.connect(self.btn_start)
         self.pushButton_stop.clicked.connect(self.btn_stop)
         self.pushButton_config.clicked.connect(self.btn_settings)
@@ -469,7 +469,7 @@ class MainWindow(QMainWindow, mf.Ui_Form):
                 return
             except:
                 pass
-
+            current_user_login =''
             while not self.stop_thread:
                 if not self.pause_thread:
                     try:
@@ -494,6 +494,11 @@ class MainWindow(QMainWindow, mf.Ui_Form):
                             for invite in invites:
                                 user_login = invite.find_element(By.XPATH,'.//div [@class="_7WumH"]/a').text
                                 user_name = invite.find_element(By.XPATH,'.//div [@class="_7WumH"]/span').text
+                                if current_user_login:
+                                    if current_user_login == user_login:
+                                        dt = datetime.datetime.now().strftime("%H:%M:%S %m.%d.%Y")
+                                        progress_callback.emit(f'{dt}: Зависили на {user_login}, обновляем страницу...')
+                                        continue
                                 button_confirm = invite.find_element(By.XPATH,'//button[contains(text(),"Confirm")]')
                                 button_confirm.click()
                                 dt = datetime.datetime.now().strftime("%H:%M:%S %m.%d.%Y")
@@ -501,6 +506,10 @@ class MainWindow(QMainWindow, mf.Ui_Form):
                                 history= Historys(user_name = user_name,insta_login = user_login, date_time = datetime.datetime.now())
                                 history.save()
                                 sleep(randint(timeout_confirm-1,timeout_confirm+3))
+                                if self.pause_thread:
+                                    break
+                                if self.stop_thread:
+                                    break
                         except:
                             self.lg.exception('invite')
                             continue
