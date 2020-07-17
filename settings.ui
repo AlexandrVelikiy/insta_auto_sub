@@ -189,6 +189,29 @@
     </rect>
    </property>
   </widget>
+  <widget class="QSpinBox" name="spinBox_timeout_confirm">
+   <property name="geometry">
+    <rect>
+     <x>210</x>
+     <y>71</y>
+     <width>42</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_6">
+   <property name="geometry">
+    <rect>
+     <x>269</x>
+     <y>74</y>
+     <width>171</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Пауза между подтверждениями</string>
+   </property>
+  </widget>
  </widget>
  <resources/>
  <connections>

@@ -129,6 +129,7 @@ class QDialogClass(QDialog, settings.Ui_Dialog):
             config = Config.select().get()
             self.lineEdit_chromepath.setText(config.chrome_path)
             self.spinBox_timeout.setValue(config.timeout)
+            self.spinBox_timeout_confirm.setValue(config.timeout_confirm)
             if config.sheduled:
                 self.checkBox_sheduled.setChecked(config.sheduled)
             else:
@@ -137,10 +138,12 @@ class QDialogClass(QDialog, settings.Ui_Dialog):
                 self.dateTime_stop.setDateTime(config.stop_data_time)
             if config.start_data_time:
                 self.dateTime_start.setDateTime(config.start_data_time)
+
         except peewee.DoesNotExist:
             # загружаем значения по умолчанию
             self.lineEdit_chromepath.setText('')
             self.spinBox_timeout.setValue(30)
+            self.spinBox_timeout_confirm.setValue(5)
             self.checkBox_autostart.setChecked(False)
             self.dateTime_stop.setDateTime(datetime.datetime.now()+datetime.timedelta(days=1))
 
@@ -148,6 +151,7 @@ class QDialogClass(QDialog, settings.Ui_Dialog):
         try:
             chromepath = self.lineEdit_chromepath.text()
             timeout = self.spinBox_timeout.value()
+            timeout_confirm = self.spinBox_timeout_confirm.value()
             sheduled = self.checkBox_sheduled.isChecked()
             stop_datetime = self.dateTime_stop.dateTime().toPyDateTime()
             start_datetime = self.dateTime_start.dateTime().toPyDateTime()
@@ -155,6 +159,7 @@ class QDialogClass(QDialog, settings.Ui_Dialog):
             config = Config.select().get()
             config.chrome_path =chromepath
             config.timeout = timeout
+            config.timeout_confirm = timeout_confirm
             config.sheduled = sheduled
             config.start_data_time = start_datetime
             config.stop_data_time = stop_datetime
@@ -162,7 +167,7 @@ class QDialogClass(QDialog, settings.Ui_Dialog):
 
         except peewee.DoesNotExist:
             config = Config(chrome_path=chromepath, timeout=timeout,sheduled =sheduled,
-                            start_data_time = start_datetime,stop_data_time=stop_datetime)
+                            start_data_time = start_datetime,stop_data_time=stop_datetime,timeout_confirm = timeout_confirm)
             config.save()
 
 
@@ -181,7 +186,7 @@ class MainWindow(QMainWindow, mf.Ui_Form):
         if not os.path.exists(REPORTS_DIRECTORY_NAME):
             os.makedirs(REPORTS_DIRECTORY_NAME)
         self.setupUi(self)
-        self.setWindowTitle('Instagram auto follow confirm v.1.2')
+        self.setWindowTitle('Instagram auto follow confirm v.1.3')
         self.pushButton_start.clicked.connect(self.btn_start)
         self.pushButton_stop.clicked.connect(self.btn_stop)
         self.pushButton_config.clicked.connect(self.btn_settings)
@@ -357,6 +362,7 @@ class MainWindow(QMainWindow, mf.Ui_Form):
             QMessageBox.warning(self,'Внимание','Путь к браузеру не указан в настройках!',QMessageBox.Ok)
             return
         timeout = config.timeout
+        timeout_confirm = config.timeout_confirm
         #self.stop_data_time = config.stop_data_time
         # сохраняем дату время страта
         config.last_start_dt = datetime.datetime.now()
@@ -372,7 +378,7 @@ class MainWindow(QMainWindow, mf.Ui_Form):
 
         print('Start')
         worker = Worker(self.insat_monitor,
-                        kwargs={ 'chromepath': chromepath,'timeout':timeout })
+                        kwargs={ 'chromepath': chromepath,'timeout':timeout, 'timeout_confirm':timeout_confirm })
         worker.signals.result.connect(self.print_output)
         worker.signals.finished.connect(self.thread_complete)
         worker.signals.progress.connect(self.loging_thread)
@@ -422,7 +428,7 @@ class MainWindow(QMainWindow, mf.Ui_Form):
 
             file_name = f'{REPORTS_DIRECTORY_NAME}/report_{datetime.datetime.now().strftime("%H%M%S_%m%d%Y")}.txt'
             with open(file_name,'w') as file:
-                file.write(f'Окончание работы: {datetime.datetime.now().strftime("%H:%M:%S %m/%d/%Y")}' +'\n')
+                file.write(f'Окончание работы: {datetime.datetime.now().strftime("%H:%M:%S %m.%d.%Y")}' +'\n')
                 file.write(f'За сутки было принято: {history_24}'+ '\n')
                 file.write(f'За время работы было принято: {history_last_start}' + '\n')
         except:
@@ -434,14 +440,13 @@ class MainWindow(QMainWindow, mf.Ui_Form):
             chromepath =  kwargs.get('chromepath')
             exec_path_chrome = os.path.join(chromepath, 'App/Chrome-bin/Chrome.exe')
             profile_path = os.path.join(chromepath, 'Data/profile/')
-
             timeout = int(kwargs.get('timeout'))
+            timeout_confirm = int(kwargs.get('timeout_confirm'))
+
             ch_options = Options()  # Chrome Options
             ch_options.add_argument(f"user-data-dir={profile_path}")  # Extract this path from "chrome://version/"
             ch_options.add_argument('window-size=640x780')
-            #ch_options.add_argument('--headless')
-            #ch_options.add_argument('--no-sandbox')
-            #ch_options.add_argument('--disable-gpu')
+
 
             try:
                 ch_options.binary_location = exec_path_chrome
@@ -467,10 +472,11 @@ class MainWindow(QMainWindow, mf.Ui_Form):
             while not self.stop_thread:
                 if not self.pause_thread:
                     try:
-                        invites = WebDriverWait(driver, 5).until(
+                        invites = WebDriverWait(driver, 30).until(
                             lambda driver: driver.find_elements_by_xpath(('.//div[@class="PUHRj  H_sJK"]')))
                     except TimeoutException:
-                        progress_callback.emit(f'Нет необработаных запросов, пауза {timeout} секунд.')
+                        dt = datetime.datetime.now().strftime("%H:%M:%S %m.%d.%Y")
+                        progress_callback.emit(f'{dt}: Нет необработаных запросов, пауза {timeout} секунд.')
                         sleep(timeout)
                         try:
                             driver.refresh()
@@ -479,22 +485,28 @@ class MainWindow(QMainWindow, mf.Ui_Form):
                         continue
 
                     if invites:
-                        progress_callback.emit(f'Есть {len(invites)} необработаных запросов!')
+                        dt = datetime.datetime.now().strftime("%H:%M:%S %m.%d.%Y")
+                        progress_callback.emit(f'{dt}: Есть {len(invites)} необработаных запросов!')
                         #
                         # ('.//div[@class="PUHRj  H_sJK"]//div [@class="_7WumH"]/span/text()')
-                        for invite in invites:
-                            user_login = invite.find_element(By.XPATH,'.//div [@class="_7WumH"]/a').text
-                            user_name = invite.find_element(By.XPATH,'.//div [@class="_7WumH"]/span').text
-                            button_confirm = invite.find_element(By.XPATH,'//button[contains(text(),"Confirm")]')
-                            button_confirm.click()
-                            progress_callback.emit(f'Подтверждаем запрос от пользователя: {user_name}.')
-                            history= Historys(user_name = user_name,insta_login = user_login, date_time = datetime.datetime.now())
-                            history.save()
-                            sleep(randint(1,3))
+                        try:
+                            for invite in invites:
+                                user_login = invite.find_element(By.XPATH,'.//div [@class="_7WumH"]/a').text
+                                user_name = invite.find_element(By.XPATH,'.//div [@class="_7WumH"]/span').text
+                                button_confirm = invite.find_element(By.XPATH,'//button[contains(text(),"Confirm")]')
+                                button_confirm.click()
+                                dt = datetime.datetime.now().strftime("%H:%M:%S %m.%d.%Y")
+                                progress_callback.emit(f'{dt}: Подтверждаем запрос от пользователя: {user_name}.')
+                                history= Historys(user_name = user_name,insta_login = user_login, date_time = datetime.datetime.now())
+                                history.save()
+                                sleep(randint(timeout_confirm-1,timeout_confirm+3))
+                        except:
+                            self.lg.exception('invite')
+                            continue
 
                     else:
-                        progress_callback.emit(f'Нет необработаных запросов, пауза {timeout} секунд.')
-
+                        dt = datetime.datetime.now().strftime("%H:%M:%S %m.%d.%Y")
+                        progress_callback.emit(f'{dt}: Нет необработаных запросов, пауза {timeout} секунд.')
 
                     sleep(timeout)
                     driver.refresh()

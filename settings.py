@@ -60,6 +60,12 @@ class Ui_Dialog(object):
         self.lineEdit.setEnabled(False)
         self.lineEdit.setGeometry(QtCore.QRect(420, 40, 71, 20))
         self.lineEdit.setObjectName("lineEdit")
+        self.spinBox_timeout_confirm = QtWidgets.QSpinBox(Dialog)
+        self.spinBox_timeout_confirm.setGeometry(QtCore.QRect(210, 71, 42, 22))
+        self.spinBox_timeout_confirm.setObjectName("spinBox_timeout_confirm")
+        self.label_6 = QtWidgets.QLabel(Dialog)
+        self.label_6.setGeometry(QtCore.QRect(269, 74, 171, 16))
+        self.label_6.setObjectName("label_6")
 
         self.retranslateUi(Dialog)
         self.buttonBox.accepted.connect(Dialog.accept)
@@ -77,3 +83,4 @@ class Ui_Dialog(object):
         self.label_4.setText(_translate("Dialog", "Запустить:"))
         self.label_5.setText(_translate("Dialog", "Запланированное время работы"))
         self.checkBox_sheduled.setText(_translate("Dialog", "Включить запуск по расписанию"))
+        self.label_6.setText(_translate("Dialog", "Пауза между подтверждениями"))

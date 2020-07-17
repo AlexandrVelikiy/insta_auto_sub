@@ -22,6 +22,7 @@ class Config(BaseModel):
     id = BigIntegerField(null=False, primary_key=True, column_name='ID')
     chrome_path = TextField(null=True, column_name='chrome_path')
     timeout = BigIntegerField(null=True, column_name='timeout')
+    timeout_confirm = BigIntegerField(null=True, column_name='timeout_confirm')
     start_data_time = DateTimeField(null=True, column_name='start_data_time')
     stop_data_time = DateTimeField(null=True, column_name='stop_data_time')
     sheduled = BooleanField(null=True, column_name='sheduled')
