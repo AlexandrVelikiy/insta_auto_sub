@@ -59,8 +59,6 @@ class QDialogClass(QDialog, settings.Ui_Dialog):
         self.lg = logging.getLogger('insta')
         self.buttonBox.accepted.connect(self.save_settings)
         self.pushButton_path.clicked.connect(self.btn_open_folder)
-        #self.dateTime_start.editingFinished.connect(self.start_stateChanged)
-        #self.dateTime_stop.editingFinished.connect(self.stop_stateChanged)
         self.checkBox_sheduled.stateChanged.connect(self.shedule_change_state)
         self.load_stored_data()
 
@@ -92,44 +90,14 @@ class QDialogClass(QDialog, settings.Ui_Dialog):
             running_time = self.curr_dateTime_stop - self.curr_dateTime_start
             self.lineEdit.setText(str(running_time))
 
-    def start_stateChanged(self):
-        self.curr_dateTime_start = self.dateTime_start.dateTime().toPyDateTime()
-
-        if self.curr_dateTime_start < datetime.datetime.now():
-            QMessageBox.warning(self, 'Внимание!', 'Дата старта не может быть меньше текущей даты',
-                                QMessageBox.Ok)
-            self.curr_dateTime_start = None
-            return
-        if self.curr_dateTime_stop:
-            if self.curr_dateTime_stop > self.curr_dateTime_start:
-                # определяем разницу
-                running_time = self.curr_dateTime_stop - self.curr_dateTime_start
-                self.lineEdit.setText(str(running_time))
-            else:
-                QMessageBox.warning(self,'Внимание!','Дата старта не может быть меньше даты остановки', QMessageBox.Ok)
-
-    def stop_stateChanged(self):
-        self.curr_dateTime_stop = self.dateTime_stop.dateTime().toPyDateTime()
-        if self.curr_dateTime_stop < datetime.datetime.now():
-            QMessageBox.warning(self, 'Внимание!', 'Дата остановки не может быть меньше текущей даты',
-                                QMessageBox.Ok)
-            self.curr_dateTime_stop = None
-            return
-
-        if self.curr_dateTime_start:
-            if self.curr_dateTime_stop > self.curr_dateTime_start:
-                # определяем разницу
-                running_time = self.curr_dateTime_stop - self.curr_dateTime_start
-                self.lineEdit.setText(str(running_time))
-            else:
-                QMessageBox.warning(self, 'Внимание!', 'Дата остановки не может быть больше даты старта', QMessageBox.Ok)
-
     def load_stored_data(self):
         try:
             config = Config.select().get()
             self.lineEdit_chromepath.setText(config.chrome_path)
             self.spinBox_timeout.setValue(config.timeout)
             self.spinBox_timeout_confirm.setValue(config.timeout_confirm)
+            if config.refresh_count:
+                self.spinBox_refresh_count.setValue(config.refresh_count)
             if config.sheduled:
                 self.checkBox_sheduled.setChecked(config.sheduled)
             else:
@@ -144,6 +112,7 @@ class QDialogClass(QDialog, settings.Ui_Dialog):
             self.lineEdit_chromepath.setText('')
             self.spinBox_timeout.setValue(30)
             self.spinBox_timeout_confirm.setValue(5)
+            self.spinBox_refresh_count.setValue(5)
             self.checkBox_autostart.setChecked(False)
             self.dateTime_stop.setDateTime(datetime.datetime.now()+datetime.timedelta(days=1))
 
@@ -155,6 +124,8 @@ class QDialogClass(QDialog, settings.Ui_Dialog):
             sheduled = self.checkBox_sheduled.isChecked()
             stop_datetime = self.dateTime_stop.dateTime().toPyDateTime()
             start_datetime = self.dateTime_start.dateTime().toPyDateTime()
+            refresh_count = self.spinBox_refresh_count.value()
+
 
             config = Config.select().get()
             config.chrome_path =chromepath
@@ -163,16 +134,14 @@ class QDialogClass(QDialog, settings.Ui_Dialog):
             config.sheduled = sheduled
             config.start_data_time = start_datetime
             config.stop_data_time = stop_datetime
+            config.refresh_count = refresh_count
             config.save()
 
         except peewee.DoesNotExist:
             config = Config(chrome_path=chromepath, timeout=timeout,sheduled =sheduled,
-                            start_data_time = start_datetime,stop_data_time=stop_datetime,timeout_confirm = timeout_confirm)
+                            start_data_time = start_datetime,stop_data_time=stop_datetime,timeout_confirm = timeout_confirm, refresh_count = refresh_count)
             config.save()
 
-
-        return sheduled
-        print('save_settings')
 
     def btn_open_folder(self):
         file = str(QFileDialog.getExistingDirectory(self, "Select Directory"))
@@ -186,7 +155,7 @@ class MainWindow(QMainWindow, mf.Ui_Form):
         if not os.path.exists(REPORTS_DIRECTORY_NAME):
             os.makedirs(REPORTS_DIRECTORY_NAME)
         self.setupUi(self)
-        self.setWindowTitle('Instagram auto follow confirm v.1.4')
+        self.setWindowTitle('Instagram auto follow confirm v.1.5')
         self.pushButton_start.clicked.connect(self.btn_start)
         self.pushButton_stop.clicked.connect(self.btn_stop)
         self.pushButton_config.clicked.connect(self.btn_settings)
@@ -227,7 +196,7 @@ class MainWindow(QMainWindow, mf.Ui_Form):
 
         except peewee.DoesNotExist:
             self.log.append('Внимание! необходимо настроить путь к браузеру')
-            config = Config(chrome_path='', timeout=10,timeout_confirm = 3, auto_start=False)
+            config = Config(chrome_path='', timeout=10,timeout_confirm = 3,refresh_count = 5, auto_start=False)
             config.save()
 
         self.update_ui()
@@ -364,6 +333,7 @@ class MainWindow(QMainWindow, mf.Ui_Form):
             return
         timeout = config.timeout
         timeout_confirm = config.timeout_confirm
+        refresh_count = config.refresh_count
         #self.stop_data_time = config.stop_data_time
         # сохраняем дату время страта
         config.last_start_dt = datetime.datetime.now()
@@ -379,7 +349,7 @@ class MainWindow(QMainWindow, mf.Ui_Form):
 
         print('Start')
         worker = Worker(self.insat_monitor,
-                        kwargs={ 'chromepath': chromepath,'timeout':timeout, 'timeout_confirm':timeout_confirm })
+                        kwargs={ 'chromepath': chromepath,'timeout':timeout, 'timeout_confirm':timeout_confirm,'refresh_count':refresh_count })
         worker.signals.result.connect(self.print_output)
         worker.signals.finished.connect(self.thread_complete)
         worker.signals.progress.connect(self.loging_thread)
@@ -443,6 +413,7 @@ class MainWindow(QMainWindow, mf.Ui_Form):
             profile_path = os.path.join(chromepath, 'Data/profile/')
             timeout = int(kwargs.get('timeout'))
             timeout_confirm = int(kwargs.get('timeout_confirm'))
+            refresh_count = int(kwargs.get('refresh_count'))
 
             ch_options = Options()  # Chrome Options
             ch_options.add_argument(f"user-data-dir={profile_path}")  # Extract this path from "chrome://version/"
@@ -491,24 +462,28 @@ class MainWindow(QMainWindow, mf.Ui_Form):
                         #
                         # ('.//div[@class="PUHRj  H_sJK"]//div [@class="_7WumH"]/span/text()')
                         try:
-                            for invite in invites:
+                            for i,invite in enumerate(invites):
                                 user_login = invite.find_element(By.XPATH,'.//div [@class="_7WumH"]/a').text
                                 user_name = invite.find_element(By.XPATH,'.//div [@class="_7WumH"]/span').text
-                                if current_user_login:
-                                    if current_user_login == user_login:
-                                        dt = datetime.datetime.now().strftime("%H:%M:%S %m.%d.%Y")
-                                        progress_callback.emit(f'{dt}: Зависили на {user_login}, обновляем страницу...')
-                                        continue
+                                #if current_user_login:
+                                #    if current_user_login == user_login:
+                                #        dt = datetime.datetime.now().strftime("%H:%M:%S %m.%d.%Y")
+                                #        progress_callback.emit(f'{dt}: Зависили на {user_login}, обновляем страницу...')
+                                if i > refresh_count-1:
+                                    break
                                 button_confirm = invite.find_element(By.XPATH,'//button[contains(text(),"Confirm")]')
                                 button_confirm.click()
                                 dt = datetime.datetime.now().strftime("%H:%M:%S %m.%d.%Y")
-                                progress_callback.emit(f'{dt}: Подтверждаем запрос от пользователя: {user_name}.')
+                                progress_callback.emit(f'{dt}: {i} Подтверждаем запрос от пользователя: {user_name}.')
                                 history= Historys(user_name = user_name,insta_login = user_login, date_time = datetime.datetime.now())
                                 history.save()
+
+                                current_user_login = user_login
                                 sleep(randint(timeout_confirm-1,timeout_confirm+3))
                                 if self.pause_thread:
                                     break
                                 if self.stop_thread:
+
                                     break
                         except:
                             self.lg.exception('invite')
